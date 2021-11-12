@@ -1,0 +1,102 @@
+---
+title: "exercise2"
+author: "Yaal Shapira"
+date: "04/11/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library("compGenomRData")
+library("pheatmap")
+library("stats")
+library("corrplot")
+library("ggplot2")
+library("ggfortify")
+```
+### Exploring the count tables
+
+```{r normalise}
+counts_file <- system.file("extdata/rna-seq/SRP029880.raw_counts.tsv",
+                            package = "compGenomRData")
+coldata_file <- system.file("extdata/rna-seq/SRP029880.colData.tsv",
+                            package = "compGenomRData")
+
+countsdf = read.table(counts_file, header = T, sep = "\t", row.names = 1)
+coldatadf = read.table(coldata_file, header = T, sep = "\t", row.names = 1)
+countsmat = as.matrix(countsdf)
+GeneLength = as.vector(subset(countsmat, select = c(width)))
+rpkm = apply(subset(countsmat, select = c(-width)),2, function(x) {10^9 * x / GeneLength / sum(as.numeric(x))}) #reads/(sum of reads * width) * 10^9
+rpk = apply(subset(countsmat, select = c(-width)),2, function(x) x/(GeneLength/1000))
+tpm = apply(rpk,2,function(x) x/sum(as.numeric(x))*10^6)
+```
+
+#### TPM
+```{r}
+head(tpm)
+```
+
+#### Heatmaps
+100 most variable genes
+```{r}
+tpm_var = apply(tpm,1,var)
+topgenes500 = names(tpm_var[order(tpm_var,decreasing = T)][1:500])
+topgenes100 = names(tpm_var[order(tpm_var,decreasing = T)][1:100])
+pheatmap(tpm[topgenes100,], show_rownames = F)
+```
+
+500 most variable genes
+```{r}
+pheatmap(tpm[topgenes500,], show_rownames = F)
+```
+
+##### Scale = 'row'
+
+100 most variable genes
+```{r}
+pheatmap(tpm[topgenes100,], scale = "row", show_rownames = F, annotation_col = coldatadf)
+```
+
+500 most variable genes
+```{r}
+pheatmap(tpm[topgenes500,], scale = "row", show_rownames = F, annotation_col = coldatadf)
+```
+
+#### Correlation
+4
+```{r}
+correlation_mat = cor(tpm)
+corrplot(correlation_mat, method = "ellipse", type = "upper", order = "hclust", hclust.method = "average")
+```
+
+5
+heatmap
+```{r}
+exp_sum = (rowSums(tpm))
+highexp_100 = tpm[names(exp_sum[order(exp_sum, decreasing = T)][1:100]),]
+pheatmap(highexp_100, scale = "row", show_rownames = F, annotation_col = coldatadf)
+```
+pca
+```{r}
+log2_highexp100 = log(t(highexp_100)+1)
+pcaResults = prcomp(log2_highexp100)
+autoplot(pcaResults,data= coldatadf, colour = "group")
+```
+6
+```{r}
+coldatadf$batch = factor(c(rep(1,5),rep(2,5)))
+highexp_500 = tpm[names(exp_sum[order(exp_sum, decreasing = T)][1:500]),]
+log2_highexp500 = log(t(highexp_500)+1)
+pcaResults = prcomp(log2_highexp100)
+autoplot(pcaResults,data = coldatadf, colour = "batch")
+```
+7
+```{r}
+tpm2 = tpm[apply(tpm, 1, function(x) sd(x) != 0),]
+pheatmap(tpm2, scale = 'row', show_rownames = F, annotation_col = coldatadf)
+```
+### Git and Github
+
+user: yaalhs
+
+link https://github.com/yaalhs
